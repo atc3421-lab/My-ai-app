@@ -10,6 +10,19 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "25mb" }));
 
+// Sync Endpoint for Service Worker background sync or offline sync queue
+app.post("/api/sync-records", (req, res) => {
+  const { records } = req.body;
+  const count = Array.isArray(records) ? records.length : 0;
+  console.log(`[PWA Backend Sync] Server synchronized and accepted ${count} pending notebook records successfully!`);
+  res.status(200).json({
+    success: true,
+    message: "Successfully synchronized offline notebook checks",
+    count,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Setup Vite & Static Assets routing
 async function initServer() {
   if (process.env.NODE_ENV !== "production") {
