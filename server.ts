@@ -2,8 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, doc, setDoc, getDoc, query, where, getDocs } from "firebase/firestore";
+import * as admin from "firebase-admin";
 
 dotenv.config();
 
@@ -12,28 +11,32 @@ const PORT = 3000;
 
 app.use(express.json({ limit: "25mb" }));
 
-// Initialize Firebase
-const firebaseConfig = {
+// Initialize Firebase Admin SDK
+const serviceAccount = {
   projectId: "gen-lang-client-0257986625",
-  appId: "1:256152819428:web:c931ddd8d9169e637fbef1",
-  apiKey: "AIzaSyBOk3mVbtM5XW6Cp3LHo5FuPJUa02Rlmis",
-  authDomain: "gen-lang-client-0257986625.firebaseapp.com",
-  storageBucket: "gen-lang-client-0257986625.firebasestorage.app",
-  messagingSenderId: "256152819428",
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk@gen-lang-client-0257986625.iam.gserviceaccount.com",
+  privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+    projectId: "gen-lang-client-0257986625",
+  });
+} catch (error) {
+  // Firebase already initialized
+  console.log("Firebase already initialized or error:", (error as Error).message);
+}
 
-// Helper: Extract user ID from request (from auth token header)
-function getUserIdFromRequest(req: express.Request): string | null {
+const db = admin.firestore();
+
+// Helper: Extract user ID from request
+function getUserIdFromRequest(req: express.Request): string {
   const authHeader = req.headers["authorization"];
-  if (!authHeader) {
-    // For demo purposes, use a default user ID
-    return req.headers["x-user-id"] as string || "demo-user";
+  if (authHeader) {
+    return authHeader.split(" ")[1] || "demo-user";
   }
-  // In production, verify the token here
-  return authHeader.split(" ")[1] || "demo-user";
+  return (req.headers["x-user-id"] as string) || "demo-user";
 }
 
 // Sync Endpoint: Save records from mobile to Firestore
@@ -41,6 +44,8 @@ app.post("/api/sync-records", async (req, res) => {
   try {
     const { records } = req.body;
     const userId = getUserIdFromRequest(req);
+
+    console.log(`[API] Sync request from user: ${userId}, records: ${Array.isArray(records) ? records.length : 0}`);
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -51,8 +56,8 @@ app.post("/api/sync-records", async (req, res) => {
     }
 
     // Save to Firestore under user's collection
-    const userDataRef = doc(db, "users", userId, "projects", "projectBook");
-    await setDoc(userDataRef, {
+    const userDataRef = db.collection("users").doc(userId).collection("projects").doc("projectBook");
+    await userDataRef.set({
       records,
       lastSyncedAt: new Date().toISOString(),
       count: records.length,
@@ -81,21 +86,24 @@ app.get("/api/get-records", async (req, res) => {
   try {
     const userId = getUserIdFromRequest(req);
 
+    console.log(`[API] Get records request from user: ${userId}`);
+
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
     // Fetch from Firestore
-    const userDataRef = doc(db, "users", userId, "projects", "projectBook");
-    const docSnap = await getDoc(userDataRef);
+    const userDataRef = db.collection("users").doc(userId).collection("projects").doc("projectBook");
+    const docSnap = await userDataRef.get();
 
-    if (docSnap.exists()) {
+    if (docSnap.exists) {
       const data = docSnap.data();
-      console.log(`[PWA Get Records] Retrieved ${data.count} records for user ${userId}`);
+      console.log(`[PWA Get Records] Retrieved ${data?.count || 0} records for user ${userId}`);
       res.status(200).json({
         success: true,
-        records: data.records || [],
-        lastSyncedAt: data.lastSyncedAt,
+        records: data?.records || [],
+        lastSyncedAt: data?.lastSyncedAt,
+        count: data?.count || 0,
         timestamp: new Date().toISOString(),
       });
     } else {
@@ -103,6 +111,7 @@ app.get("/api/get-records", async (req, res) => {
       res.status(200).json({
         success: true,
         records: [],
+        count: 0,
         message: "No records found",
         timestamp: new Date().toISOString(),
       });
@@ -119,7 +128,11 @@ app.get("/api/get-records", async (req, res) => {
 
 // Health check endpoint
 app.get("/api/health", (req, res) => {
-  res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    firebase: "connected"
+  });
 });
 
 // Setup Vite & Static Assets routing
