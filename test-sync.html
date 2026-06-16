@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Sync Tester</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .btn-upload {
+      background: #4CAF50;
+      color: white;
+    }
+    .btn-upload:hover {
+      background: #45a049;
+    }
+    .btn-fetch {
+      background: #2196F3;
+      color: white;
+    }
+    .btn-fetch:hover {
+      background: #0b7dda;
+    }
+    .btn-clear {
+      background: #f44336;
+      color: white;
+    }
+    .btn-clear:hover {
+      background: #da190b;
+    }
+    .output {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 4px;
+      min-height: 100px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .success {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    .info {
+      color: #2196F3;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📱 Project Book Data Sync Tester</h1>
+    
+    <div class="section">
+      <h2>User ID:</h2>
+      <input type="text" id="userId" value="test-user-123" placeholder="Enter User ID">
+    </div>
+
+    <div class="section">
+      <h2>1️⃣ Upload Data (Mobile)</h2>
+      <button class="btn-upload" onclick="uploadData()">📤 Upload Test Data</button>
+      <p style="font-size: 12px; color: #666;">This simulates uploading project book data from mobile</p>
+    </div>
+
+    <div class="section">
+      <h2>2️⃣ Retrieve Data (Desktop)</h2>
+      <button class="btn-fetch" onclick="fetchData()">📥 Fetch Data</button>
+      <p style="font-size: 12px; color: #666;">This simulates fetching data on desktop</p>
+    </div>
+
+    <div class="section">
+      <h2>📋 Results:</h2>
+      <button class="btn-clear" onclick="clearOutput()">Clear Output</button>
+      <div class="output" id="output">Waiting for test...</div>
+    </div>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const userId = document.getElementById('userId');
+
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type;
+      output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function clearOutput() {
+      output.innerHTML = 'Waiting for test...';
+    }
+
+    async function uploadData() {
+      log('⏳ Starting upload test...', 'info');
+      log(`User ID: ${userId.value}`, 'info');
+      
+      try {
+        const response = await fetch('/api/sync-records', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': userId.value
+          },
+          body: JSON.stringify({
+            records: [
+              { id: 1, name: 'Project Book 1', pages: 50, subject: 'Mathematics' },
+              { id: 2, name: 'Project Book 2', pages: 75, subject: 'Science' },
+              { id: 3, name: 'Project Book 3', pages: 40, subject: 'History' }
+            ]
+          })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          log(`✅ UPLOAD SUCCESS!`, 'success');
+          log(`Message: ${data.message}`, 'success');
+          log(`Records uploaded: ${data.count}`, 'success');
+          log(`Timestamp: ${data.timestamp}`, 'info');
+        } else {
+          log(`❌ UPLOAD FAILED!`, 'error');
+          log(`Error: ${data.error || 'Unknown error'}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ UPLOAD ERROR: ${error.message}`, 'error');
+      }
+    }
+
+    async function fetchData() {
+      log('⏳ Starting fetch test...', 'info');
+      log(`User ID: ${userId.value}`, 'info');
+      
+      try {
+        const response = await fetch('/api/get-records', {
+          method: 'GET',
+          headers: {
+            'x-user-id': userId.value
+          }
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          log(`✅ FETCH SUCCESS!`, 'success');
+          log(`Records found: ${data.records.length}`, 'success');
+          
+          if (data.records.length > 0) {
+            log(`Last synced: ${data.lastSyncedAt}`, 'info');
+            log(`\nData retrieved:`, 'success');
+            log(JSON.stringify(data.records, null, 2), 'info');
+          } else {
+            log(`⚠️ No data found. Make sure to upload first!`, 'error');
+          }
+        } else {
+          log(`❌ FETCH FAILED!`, 'error');
+          log(`Error: ${data.error || 'Unknown error'}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ FETCH ERROR: ${error.message}`, 'error');
+      }
+    }
+
+    log('✅ Test page loaded. Click buttons to test sync!', 'success');
+  </script>
+</body>
+</html>
