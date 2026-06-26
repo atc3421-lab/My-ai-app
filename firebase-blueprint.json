@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "SchoolClass": {
+      "title": "School Class",
+      "description": "Information about a class and its roster of students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "grade": { "type": "string" },
+        "students": { "type": "array" }
+      },
+      "required": ["id", "name", "grade", "students"]
+    },
+    "SyllabusTopicState": {
+      "title": "Syllabus Topic State",
+      "description": "Completion status and carry forward requests for a specific syllabus topic",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "grade": { "type": "string" },
+        "subject": { "type": "string" },
+        "month": { "type": "string" },
+        "topicText": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "grade", "subject", "month", "topicText", "isCompleted"]
+    }
+  },
+  "firestore": {
+    "school_data/classes": {
+      "schema": "SchoolClass",
+      "description": "List of classes synced from server"
+    },
+    "school_data/syllabusTopicStates": {
+      "schema": "SyllabusTopicState",
+      "description": "List of syllabus topic completion states synced from server"
+    }
+  }
+}
